@@ -1880,51 +1880,17 @@ async def handle_delete_back(callback: CallbackQuery):
 
 # main.py faylining oxirgi qismini o'zgartiramiz:
 
-# main.py faylida main() funksiyasiga:
-
 async def main():
-    """Asosiy bot funksiyasi"""
+    """Asosiy bot funksiyasi - Webhook bilan"""
     
     # Keep alive serverini ishga tushirish
     try:
         keep_alive.start_keep_alive()
         logger.info("✅ Keep-alive server started")
-        
-        # Kuchliroq auto-ping ni ishga tushirish
-        if os.getenv('RENDER'):
-            import threading
-            ping_thread = threading.Thread(target=keep_alive.auto_ping, daemon=True)
-            ping_thread.start()
-            logger.info("✅ Auto-ping thread started (prevents sleep)")
-            
     except Exception as e:
         logger.warning(f"⚠️ Keep-alive error: {e}")
     
     logger.info("🤖 Bot starting...")
-    
-    # ... qolgan kod# main.py faylida main() funksiyasiga:
-
-async def main():
-    """Asosiy bot funksiyasi"""
-    
-    # Keep alive serverini ishga tushirish
-    try:
-        keep_alive.start_keep_alive()
-        logger.info("✅ Keep-alive server started")
-        
-        # Kuchliroq auto-ping ni ishga tushirish
-        if os.getenv('RENDER'):
-            import threading
-            ping_thread = threading.Thread(target=keep_alive.auto_ping, daemon=True)
-            ping_thread.start()
-            logger.info("✅ Auto-ping thread started (prevents sleep)")
-            
-    except Exception as e:
-        logger.warning(f"⚠️ Keep-alive error: {e}")
-    
-    logger.info("🤖 Bot starting...")
-    
-    # ... qolgan kod
     
     # Agar Render'da bo'lsa, Webhook ishlatamiz
     if os.getenv('RENDER'):
