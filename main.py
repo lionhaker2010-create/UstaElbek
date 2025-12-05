@@ -1886,5 +1886,40 @@ async def main():
     logger.info("Bot ishga tushdi...")
     await dp.start_polling(bot)
 
+# main.py faylining oxirgi qismini shunday qiling:
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    import sys
+    
+    # Logging sozlamalari
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+    
+    print("🤖 Bot starting...")
+    
+    # Keep-alive serverini ishga tushirish
+    try:
+        keep_alive.start_keep_alive()
+        
+        # Render uchun ping thread
+        if os.getenv('RENDER'):
+            ping_thread = Thread(target=keep_alive.ping_server)
+            ping_thread.daemon = True
+            ping_thread.start()
+            print("✅ Ping thread started for Render")
+    except Exception as e:
+        print(f"⚠️ Keep-alive error: {e}")
+    
+    # Asosiy botni ishga tushirish
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("🛑 Bot stopped by user")
+    except Exception as e:
+        print(f"❌ Bot error: {e}")
+        sys.exit(1)

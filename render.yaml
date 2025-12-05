@@ -1,12 +1,38 @@
+# render.yaml
+
 services:
   - type: web
-    name: elbek-bot
+    name: usta-elbek-bot
     env: python
-    buildCommand: pip install -r requirements.txt
+    region: frankfurt  # Yoki o'zingizga yaqin region
+    plan: free
+    
+    # Build commands
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    
+    # Start command
     startCommand: python main.py
+    
+    # Environment variables
     envVars:
       - key: BOT_TOKEN
         sync: false
       - key: ADMIN_ID
         sync: false
+      - key: RENDER
+        value: true
+    
+    # Health check
+    healthCheckPath: /
+    healthCheckTimeout: 10
+    
+    # Auto deploy
+    autoDeploy: true
+    
+    # Plan details
     plan: free
+    
+    # Scaling
+    numInstances: 1

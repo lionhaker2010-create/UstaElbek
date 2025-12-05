@@ -1,5 +1,10 @@
-aiogram==3.0.0
+# requirements.txt
+
+# Asosiy kutubxonalar
+aiogram==3.10.0
 python-dotenv==1.0.0
-aiohttp==3.8.5
+Flask==2.3.3
 requests==2.31.0
-flask==2.3.3
+
+# Database uchun
+sqlite3  # Bu built-in, requirements.txt da kerak emas
