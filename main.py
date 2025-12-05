@@ -1880,34 +1880,30 @@ async def handle_delete_back(callback: CallbackQuery):
 
 # main.py faylining oxirgi qismini shunday qiling:
 
+# main.py faylining oxirgi qismi:
+
 async def main():
-    """Asosiy bot funksiyasi"""
+    """Asosiy bot funksiyasi - Singleton pattern"""
     
     # Keep alive serverini ishga tushirish
-    keep_alive.start_keep_alive()
+    try:
+        keep_alive.start_keep_alive()
+        logger.info("✅ Keep-alive server started on port 10000")
+    except Exception as e:
+        logger.warning(f"⚠️ Keep-alive error: {e}")
     
-    # Agar Render'da bo'lsa, avto-ping ni ishga tushirish
-    if os.getenv('RENDER', 'false').lower() == 'true':
-        from threading import Thread
-        ping_thread = Thread(target=keep_alive.ping_render, daemon=True)
-        ping_thread.start()
-        logger.info("✅ Auto-ping thread started for Render")
-    
-    logger.info("🤖 Bot starting...")
+    logger.info("🤖 Bot starting polling...")
     
     try:
-        # Polling ni to'xtatish (agar oldin ishlagan bo'lsa)
-        try:
-            await dp.stop_polling()
-        except:
-            pass
-        
-        # Yangi pollingni boshlash
-        await dp.start_polling(bot, skip_updates=True)
-        
-    except Exception as e:
-        logger.error(f"❌ Bot error: {e}")
-        raise
+        # Avval pollingni to'xtatish (agar oldin ishlagan bo'lsa)
+        await dp.stop_polling()
+    except:
+        pass
+    
+    # Yangi pollingni boshlash
+    await dp.start_polling(bot, skip_updates=True)
+    
+    logger.info("✅ Bot polling started successfully")
 
 if __name__ == "__main__":
     import sys

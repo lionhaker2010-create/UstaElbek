@@ -1,10 +1,7 @@
-# keep_alive.py - Oddiy va ishonchli versiya
+# keep_alive.py - FINAL WORKING VERSION
 
 from flask import Flask
 from threading import Thread
-import time
-import requests
-import os
 
 app = Flask(__name__)
 
@@ -21,24 +18,9 @@ def ping():
     return "pong", 200
 
 def run():
-    port = int(os.getenv('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=10000, debug=False, threaded=True)
 
 def start_keep_alive():
-    t = Thread(target=run)
-    t.daemon = True
+    t = Thread(target=run, daemon=True)
     t.start()
     return t
-
-def ping_self():
-    """O'z-o'zini ping qilish (Render uchun)"""
-    service_name = os.getenv('RENDER_SERVICE_NAME', 'ustaelbek')
-    
-    while True:
-        try:
-            if os.getenv('RENDER'):
-                url = f"https://{service_name}.onrender.com"
-                requests.get(url, timeout=10)
-            time.sleep(300)  # 5 daqiqada bir
-        except:
-            time.sleep(60)

@@ -1,3 +1,5 @@
+# render.yaml
+
 services:
   - type: web
     name: usta-elbek-bot
@@ -11,18 +13,16 @@ services:
     
     startCommand: python main.py
     
+    # ✅ Portni aniq belgilash
     envVars:
+      - key: PORT
+        value: 10000
       - key: BOT_TOKEN
         sync: false
       - key: ADMIN_ID
         sync: false
       - key: RENDER
         value: true
-    
-    # ✅ PORT ni aniq belgilash
-    envVars:
-      - key: PORT
-        value: 8080
     
     healthCheckPath: /health
     autoDeploy: true
