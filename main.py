@@ -1878,48 +1878,45 @@ async def handle_delete_back(callback: CallbackQuery):
     await callback.message.answer("👨‍💻 Admin Panel", reply_markup=get_admin_keyboard())
     await callback.answer()        
 
-# Botni ishga tushirish
+# main.py faylining oxirgi qismini shunday qiling:
+
 async def main():
+    """Asosiy bot funksiyasi"""
+    
     # Keep alive serverini ishga tushirish
     keep_alive.start_keep_alive()
     
-    logger.info("Bot ishga tushdi...")
-    await dp.start_polling(bot)
-
-# main.py faylining oxirgi qismini shunday qiling:
+    # Agar Render'da bo'lsa, avto-ping ni ishga tushirish
+    if os.getenv('RENDER', 'false').lower() == 'true':
+        from threading import Thread
+        ping_thread = Thread(target=keep_alive.ping_render, daemon=True)
+        ping_thread.start()
+        logger.info("✅ Auto-ping thread started for Render")
+    
+    logger.info("🤖 Bot starting...")
+    
+    try:
+        # Polling ni to'xtatish (agar oldin ishlagan bo'lsa)
+        try:
+            await dp.stop_polling()
+        except:
+            pass
+        
+        # Yangi pollingni boshlash
+        await dp.start_polling(bot, skip_updates=True)
+        
+    except Exception as e:
+        logger.error(f"❌ Bot error: {e}")
+        raise
 
 if __name__ == "__main__":
     import sys
     
-    # Logging sozlamalari
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
-    
-    print("🤖 Bot starting...")
-    
-    # Keep-alive serverini ishga tushirish
-    try:
-        keep_alive.start_keep_alive()
-        
-        # Render uchun ping thread
-        if os.getenv('RENDER'):
-            ping_thread = Thread(target=keep_alive.ping_server)
-            ping_thread.daemon = True
-            ping_thread.start()
-            print("✅ Ping thread started for Render")
-    except Exception as e:
-        print(f"⚠️ Keep-alive error: {e}")
-    
-    # Asosiy botni ishga tushirish
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("🛑 Bot stopped by user")
+        logger.info("🛑 Bot stopped by user")
+        sys.exit(0)
     except Exception as e:
-        print(f"❌ Bot error: {e}")
+        logger.error(f"❌ Fatal error: {e}")
         sys.exit(1)
