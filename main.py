@@ -1,4 +1,3 @@
-import socket
 import asyncio
 import logging
 from datetime import datetime
@@ -43,8 +42,9 @@ ADMIN_ID = int(os.getenv("ADMIN_ID"))
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# ✅ TO'G'RI: admin modulini sozlash (bot yaratilgandan keyin)
+# ✅ TO'G'RI: admin modulini sozlash
 admin.set_bot_and_admin(bot, ADMIN_ID)
+
 
 # Emojilar
 EMOJIS = {
@@ -1883,57 +1883,29 @@ async def handle_delete_back(callback: CallbackQuery):
     await callback.message.answer("👨‍💻 Admin Panel", reply_markup=get_admin_keyboard())
     await callback.answer()        
 
-# ✅ YANGI: Port tekshirish funksiyasi
-def find_available_port(start_port=10000, max_attempts=10):
-    """Bosh port topish"""
-    for port in range(start_port, start_port + max_attempts):
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)
-            result = sock.connect_ex(('0.0.0.0', port))
-            sock.close()
-            if result != 0:  # Port bo'sh
-                return port
-        except:
-            continue
-    return start_port  # Agar bosh port topilmasa, default qaytar
-
-# ✅ YANGI: Keep alive ni port bilan yangilash
-def start_keep_alive_with_port(port=10000):
-    """Port bilan keep alive ni ishga tushirish"""
-    try:
-        # keep_alive modulini dynamic reload qilish
-        import importlib
-        importlib.reload(keep_alive)
-        
-        # Portni environment variable sifatida o'rnatish
-        os.environ['PORT'] = str(port)
-        
-        keep_alive.start_keep_alive()
-        logger.info(f"✅ Keep-alive server started on port {port}")
-        return True
-    except Exception as e:
-        logger.warning(f"⚠️ Keep-alive error on port {port}: {e}")
-        
-        # Alternativ port sinab ko'rish
-        new_port = find_available_port(port + 1)
-        if new_port != port:
-            return start_keep_alive_with_port(new_port)
-        return False
-
-# Botni ishga tushirish
 async def main():
     """Asosiy bot funksiyasi"""
     
-    # ✅ Bosh portni topish
-    port = find_available_port(10000)
-    logger.info(f"🔧 Using port: {port}")
+    # ✅ 1. AVVAL: Telegram webhook ni O'CHIRISH
+    try:
+        import requests
+        delete_url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true"
+        response = requests.get(delete_url, timeout=10)
+        if response.status_code == 200:
+            logger.info("✅ Webhook successfully deleted")
+        else:
+            logger.warning(f"⚠️ Webhook delete response: {response.json()}")
+    except Exception as e:
+        logger.warning(f"⚠️ Could not delete webhook: {e}")
     
-    # Keep alive serverini ishga tushirish
-    if not start_keep_alive_with_port(port):
-        logger.warning("⚠️ Could not start keep-alive server, continuing without it")
+    # ✅ 2. Keep alive serverini ishga tushirish
+    try:
+        keep_alive.start_keep_alive()
+        logger.info("✅ Keep-alive server started")
+    except Exception as e:
+        logger.warning(f"⚠️ Keep-alive error: {e}")
     
-    # Agar Render'da bo'lsa, avto-ping ni boshlash
+    # ✅ 3. Agar Render'da bo'lsa, avto-ping
     if os.getenv('RENDER'):
         try:
             import threading
@@ -1944,7 +1916,7 @@ async def main():
                 """Render uchun ping"""
                 while True:
                     try:
-                        url = f"https://ustaelbek.onrender.com"
+                        url = "https://ustaelbek.onrender.com"
                         requests.get(url, timeout=5)
                         time.sleep(240)  # 4 daqiqa
                     except:
@@ -1959,13 +1931,7 @@ async def main():
     logger.info("🤖 Bot starting polling...")
     
     try:
-        # Avval pollingni to'xtatish (agar oldin ishlagan bo'lsa)
-        try:
-            await dp.stop_polling()
-        except:
-            pass
-        
-        # Yangi pollingni boshlash
+        # ✅ 4. Polling ni boshlash
         await dp.start_polling(bot, skip_updates=True)
         logger.info("✅ Bot polling started successfully")
         
