@@ -1,36 +1,29 @@
-# keep_alive.py - Dynamic port fayli
-
 from flask import Flask
 from threading import Thread
+import time
+import requests
 import os
 
-app = Flask(__name__)
+app = Flask('')
 
 @app.route('/')
 def home():
-    return "🤖 Usta Elbek Bot is alive!"
-
-@app.route('/health')
-def health():
-    return "OK", 200
-
-@app.route('/ping')
-def ping():
-    return "pong", 200
+    return "Bot is alive!"
 
 def run():
-    # Portni environment variable'dan olish
-    port = int(os.getenv('PORT', 10000))
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=False,
-        threaded=True
-    )
+    app.run(host='0.0.0.0', port=8080)
 
 def start_keep_alive():
-    t = Thread(target=run, daemon=True)
+    t = Thread(target=run)
     t.start()
-    port = int(os.getenv('PORT', 10000))
-    print(f"✅ Keep-alive server started on port {port}")
-    return t
+
+# Render uchun ping funksiyasi
+def ping_server():
+    while True:
+        try:
+            # O'z-o'zini ping qilish
+            if os.getenv('RENDER', False):
+                requests.get('https://your-bot-name.onrender.com')
+            time.sleep(300)  # 5 daqiqada bir
+        except:
+            pass

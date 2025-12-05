@@ -1,5 +1,3 @@
-# render.yaml
-
 services:
   - type: web
     name: usta-elbek-bot
@@ -16,7 +14,7 @@ services:
     # ✅ Portni aniq belgilash
     envVars:
       - key: PORT
-        value: 10000
+        value: 10001  # ❗ 10000 emas, 10001
       - key: BOT_TOKEN
         sync: false
       - key: ADMIN_ID

@@ -1,7 +1,10 @@
+# main.py faylida:
+
 import asyncio
 import logging
 from datetime import datetime
 from aiogram import F
+
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import (
@@ -18,19 +21,12 @@ from database import db
 from dotenv import load_dotenv
 import os
 import keep_alive
-import sys
 
 # ✅ TO'G'RI: admin modulini import qilish
 import admin
 
 # Log konfiguratsiyasi
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # .env faylini yuklash
@@ -38,13 +34,12 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-# ✅ Bot va dispatcher yaratish
+# Bot va dispatcher yaratish
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
-# ✅ TO'G'RI: admin modulini sozlash
+# ✅ TO'G'RI: admin modulini sozlash (bot yaratilgandan keyin)
 admin.set_bot_and_admin(bot, ADMIN_ID)
-
 
 # Emojilar
 EMOJIS = {
@@ -414,17 +409,20 @@ async def show_content(message: Message, category_code: str, page: int = 0, lang
         logger.error(f"Content display error: {e}")
         await message.answer(f"❌ Kontentni ko'rsatishda xatolik: {str(e)}")
 
-# Pagination callback handler'iga ham qo'shamiz:
+# Callback query handler (sahifalash uchun)
 @dp.callback_query(F.data.startswith("content_page:"))
 async def handle_content_pagination(callback: CallbackQuery):
     try:
+        # Ma'lumotlarni ajratib olish
         _, category, page_str = callback.data.split(":")
         page = int(page_str)
         
+        # Foydalanuvchi ma'lumotlarini olish
         user_id = callback.from_user.id
         user_data = db.get_user(user_id)
         lang = user_data[3] if user_data else 'uz'
         
+        # Callback query'ni darhol javob berish
         await callback.answer()
         
         # Oldingi xabarni o'chirish
@@ -436,21 +434,9 @@ async def handle_content_pagination(callback: CallbackQuery):
         # Yangi kontentni ko'rsatish
         await show_content(callback.message, category, page, lang)
         
-        # ✅ Qo'shimcha himoya xabarini yuborish
-        extra_warning_messages = {
-            "uz": "🛡️ <b>Himoya faollashtirilgan:</b> Bu kontent faqat ko'rish uchun!",
-            "ru": "🛡️ <b>Защита активирована:</b> Этот контент только для просмотра!"
-        }
-        
-        extra_warning = await callback.message.answer(
-            extra_warning_messages.get(lang, extra_warning_messages['uz']),
-            parse_mode="HTML"
-        )
-        await asyncio.sleep(5)
-        await extra_warning.delete()
-        
     except Exception as e:
         logger.error(f"Pagination error: {e}")
+        # Xatolikda faqat answer berish, delete emas
         try:
             await callback.answer("Xatolik yuz berdi!", show_alert=True)
         except:
@@ -1883,71 +1869,13 @@ async def handle_delete_back(callback: CallbackQuery):
     await callback.message.answer("👨‍💻 Admin Panel", reply_markup=get_admin_keyboard())
     await callback.answer()        
 
+# Botni ishga tushirish
 async def main():
-    """Asosiy bot funksiyasi"""
+    # Keep alive serverini ishga tushirish
+    keep_alive.start_keep_alive()
     
-    # ✅ 1. AVVAL: Telegram webhook ni O'CHIRISH
-    try:
-        import requests
-        delete_url = f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true"
-        response = requests.get(delete_url, timeout=10)
-        if response.status_code == 200:
-            logger.info("✅ Webhook successfully deleted")
-        else:
-            logger.warning(f"⚠️ Webhook delete response: {response.json()}")
-    except Exception as e:
-        logger.warning(f"⚠️ Could not delete webhook: {e}")
-    
-    # ✅ 2. Keep alive serverini ishga tushirish
-    try:
-        keep_alive.start_keep_alive()
-        logger.info("✅ Keep-alive server started")
-    except Exception as e:
-        logger.warning(f"⚠️ Keep-alive error: {e}")
-    
-    # ✅ 3. Agar Render'da bo'lsa, avto-ping
-    if os.getenv('RENDER'):
-        try:
-            import threading
-            import time
-            import requests
-            
-            def ping_task():
-                """Render uchun ping"""
-                while True:
-                    try:
-                        url = "https://ustaelbek.onrender.com"
-                        requests.get(url, timeout=5)
-                        time.sleep(240)  # 4 daqiqa
-                    except:
-                        time.sleep(60)
-            
-            ping_thread = threading.Thread(target=ping_task, daemon=True)
-            ping_thread.start()
-            logger.info("✅ Auto-ping thread started")
-        except Exception as e:
-            logger.warning(f"⚠️ Auto-ping error: {e}")
-    
-    logger.info("🤖 Bot starting polling...")
-    
-    try:
-        # ✅ 4. Polling ni boshlash
-        await dp.start_polling(bot, skip_updates=True)
-        logger.info("✅ Bot polling started successfully")
-        
-    except Exception as e:
-        logger.error(f"❌ Bot error: {e}")
-        raise
-    finally:
-        # Tozalash
-        await bot.session.close()
+    logger.info("Bot ishga tushdi...")
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("🛑 Bot stopped by user")
-        sys.exit(0)
-    except Exception as e:
-        logger.error(f"❌ Fatal error: {e}")
-        sys.exit(1)
+    asyncio.run(main())
