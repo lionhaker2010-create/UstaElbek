@@ -1,21 +1,16 @@
-# render.yaml
-
 services:
   - type: web
     name: usta-elbek-bot
     env: python
-    region: frankfurt  # Yoki o'zingizga yaqin region
+    region: frankfurt
     plan: free
     
-    # Build commands
     buildCommand: |
       pip install --upgrade pip
       pip install -r requirements.txt
     
-    # Start command
     startCommand: python main.py
     
-    # Environment variables
     envVars:
       - key: BOT_TOKEN
         sync: false
@@ -24,15 +19,10 @@ services:
       - key: RENDER
         value: true
     
-    # Health check
-    healthCheckPath: /
-    healthCheckTimeout: 10
+    # ✅ PORT ni aniq belgilash
+    envVars:
+      - key: PORT
+        value: 8080
     
-    # Auto deploy
+    healthCheckPath: /health
     autoDeploy: true
-    
-    # Plan details
-    plan: free
-    
-    # Scaling
-    numInstances: 1
