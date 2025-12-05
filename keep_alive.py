@@ -1,4 +1,4 @@
-# keep_alive.py - To'liq tuzatilgan versiya
+# keep_alive.py - To'g'ri tuzatilgan versiya
 
 from flask import Flask
 from threading import Thread
@@ -24,7 +24,8 @@ def run():
     app.run(
         host='0.0.0.0',
         port=int(os.getenv('PORT', 8080)),
-        debug=False
+        debug=False,
+        threaded=True
     )
 
 def start_keep_alive():
@@ -51,7 +52,4 @@ def ping_render():
             time.sleep(60)  # Xatolikda 1 daqiqa kutish
         except Exception as e:
             print(f"❌ Unexpected ping error: {e}")
-            time.sleep(300))
-        except Exception as e:
-            print(f"⚠️ Ping error: {e}")
-            time.sleep(300)  # Xatolikda 5 daqiqaga uxlab qolish
+            time.sleep(300)  # Bu yerda faqat 1 ta qavs bo'lishi kerak
