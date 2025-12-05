@@ -1,10 +1,8 @@
-# main.py faylida:
-
+import socket
 import asyncio
 import logging
 from datetime import datetime
 from aiogram import F
-
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import (
@@ -21,12 +19,19 @@ from database import db
 from dotenv import load_dotenv
 import os
 import keep_alive
+import sys
 
 # ✅ TO'G'RI: admin modulini import qilish
 import admin
 
 # Log konfiguratsiyasi
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 logger = logging.getLogger(__name__)
 
 # .env faylini yuklash
@@ -34,7 +39,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-# Bot va dispatcher yaratish
+# ✅ Bot va dispatcher yaratish
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -1878,76 +1883,105 @@ async def handle_delete_back(callback: CallbackQuery):
     await callback.message.answer("👨‍💻 Admin Panel", reply_markup=get_admin_keyboard())
     await callback.answer()        
 
-# main.py faylining oxirgi qismini o'zgartiramiz:
+# ✅ YANGI: Port tekshirish funksiyasi
+def find_available_port(start_port=10000, max_attempts=10):
+    """Bosh port topish"""
+    for port in range(start_port, start_port + max_attempts):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex(('0.0.0.0', port))
+            sock.close()
+            if result != 0:  # Port bo'sh
+                return port
+        except:
+            continue
+    return start_port  # Agar bosh port topilmasa, default qaytar
 
+# ✅ YANGI: Keep alive ni port bilan yangilash
+def start_keep_alive_with_port(port=10000):
+    """Port bilan keep alive ni ishga tushirish"""
+    try:
+        # keep_alive modulini dynamic reload qilish
+        import importlib
+        importlib.reload(keep_alive)
+        
+        # Portni environment variable sifatida o'rnatish
+        os.environ['PORT'] = str(port)
+        
+        keep_alive.start_keep_alive()
+        logger.info(f"✅ Keep-alive server started on port {port}")
+        return True
+    except Exception as e:
+        logger.warning(f"⚠️ Keep-alive error on port {port}: {e}")
+        
+        # Alternativ port sinab ko'rish
+        new_port = find_available_port(port + 1)
+        if new_port != port:
+            return start_keep_alive_with_port(new_port)
+        return False
+
+# Botni ishga tushirish
 async def main():
-    """Asosiy bot funksiyasi - Webhook bilan"""
+    """Asosiy bot funksiyasi"""
+    
+    # ✅ Bosh portni topish
+    port = find_available_port(10000)
+    logger.info(f"🔧 Using port: {port}")
     
     # Keep alive serverini ishga tushirish
-    try:
-        keep_alive.start_keep_alive()
-        logger.info("✅ Keep-alive server started")
-    except Exception as e:
-        logger.warning(f"⚠️ Keep-alive error: {e}")
+    if not start_keep_alive_with_port(port):
+        logger.warning("⚠️ Could not start keep-alive server, continuing without it")
     
-    logger.info("🤖 Bot starting...")
-    
-    # Agar Render'da bo'lsa, Webhook ishlatamiz
+    # Agar Render'da bo'lsa, avto-ping ni boshlash
     if os.getenv('RENDER'):
-        from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
-        from aiohttp import web
+        try:
+            import threading
+            import time
+            import requests
+            
+            def ping_task():
+                """Render uchun ping"""
+                while True:
+                    try:
+                        url = f"https://ustaelbek.onrender.com"
+                        requests.get(url, timeout=5)
+                        time.sleep(240)  # 4 daqiqa
+                    except:
+                        time.sleep(60)
+            
+            ping_thread = threading.Thread(target=ping_task, daemon=True)
+            ping_thread.start()
+            logger.info("✅ Auto-ping thread started")
+        except Exception as e:
+            logger.warning(f"⚠️ Auto-ping error: {e}")
+    
+    logger.info("🤖 Bot starting polling...")
+    
+    try:
+        # Avval pollingni to'xtatish (agar oldin ishlagan bo'lsa)
+        try:
+            await dp.stop_polling()
+        except:
+            pass
         
-        # Webhook URL yaratish
-        webhook_url = f"https://ustaelbek.onrender.com/webhook"
-        
-        # Webhook sozlamalari
-        await bot.set_webhook(
-            url=webhook_url,
-            drop_pending_updates=True
-        )
-        
-        # Aiohttp app yaratish
-        app = web.Application()
-        
-        # Webhook handler
-        webhook_requests_handler = SimpleRequestHandler(
-            dispatcher=dp,
-            bot=bot,
-        )
-        
-        webhook_requests_handler.register(app, path="/webhook")
-        
-        # Keep-alive uchun endpoint
-        async def handle_root(request):
-            return web.Response(text="🤖 Usta Elbek Bot is alive!")
-        
-        app.router.add_get("/", handle_root)
-        app.router.add_get("/health", lambda r: web.Response(text="OK"))
-        app.router.add_get("/ping", lambda r: web.Response(text="pong"))
-        
-        # Serverni ishga tushirish
-        runner = web.AppRunner(app)
-        await runner.setup()
-        site = web.TCPSite(runner, "0.0.0.0", 10000)
-        await site.start()
-        
-        logger.info(f"✅ Webhook started at {webhook_url}")
-        
-        # Cheksiz kutish
-        await asyncio.Event().wait()
-        
-    else:
-        # Lokal uchun polling
-        logger.info("📍 Local mode: Using polling")
+        # Yangi pollingni boshlash
         await dp.start_polling(bot, skip_updates=True)
+        logger.info("✅ Bot polling started successfully")
+        
+    except Exception as e:
+        logger.error(f"❌ Bot error: {e}")
+        raise
+    finally:
+        # Tozalash
+        await bot.session.close()
 
 if __name__ == "__main__":
-    import sys
-    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("🛑 Bot stopped by user")
+        sys.exit(0)
     except Exception as e:
         logger.error(f"❌ Fatal error: {e}")
         sys.exit(1)
