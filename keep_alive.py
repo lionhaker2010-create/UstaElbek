@@ -1,4 +1,4 @@
-# keep_alive.py - To'g'ri tuzatilgan versiya
+# keep_alive.py - Oddiy va ishonchli versiya
 
 from flask import Flask
 from threading import Thread
@@ -10,46 +10,35 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "🤖 Bot is alive and running!"
+    return "🤖 Usta Elbek Bot is alive!"
 
 @app.route('/health')
 def health():
-    return "✅ OK", 200
+    return "OK", 200
 
 @app.route('/ping')
 def ping():
-    return "🏓 Pong!", 200
+    return "pong", 200
 
 def run():
-    app.run(
-        host='0.0.0.0',
-        port=int(os.getenv('PORT', 8080)),
-        debug=False,
-        threaded=True
-    )
+    port = int(os.getenv('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
 
 def start_keep_alive():
     t = Thread(target=run)
     t.daemon = True
     t.start()
-    print(f"✅ Keep-alive server started on port {os.getenv('PORT', 8080)}")
+    return t
 
-# Render uchun avto-ping funksiyasi
-def ping_render():
-    """Render'da botni uxlatmaslik uchun"""
-    render_service_name = os.getenv('RENDER_SERVICE_NAME', 'ustaelbek')
+def ping_self():
+    """O'z-o'zini ping qilish (Render uchun)"""
+    service_name = os.getenv('RENDER_SERVICE_NAME', 'ustaelbek')
     
     while True:
         try:
-            if os.getenv('RENDER', 'false').lower() == 'true':
-                render_url = f"https://{render_service_name}.onrender.com"
-                print(f"🔄 Pinging {render_url}")
-                response = requests.get(render_url, timeout=30)
-                print(f"✅ Ping successful: {response.status_code}")
-            time.sleep(240)  # 4 daqiqada bir (Render free tier uchun)
-        except requests.exceptions.RequestException as e:
-            print(f"⚠️ Ping failed: {e}")
-            time.sleep(60)  # Xatolikda 1 daqiqa kutish
-        except Exception as e:
-            print(f"❌ Unexpected ping error: {e}")
-            time.sleep(300)  # Bu yerda faqat 1 ta qavs bo'lishi kerak
+            if os.getenv('RENDER'):
+                url = f"https://{service_name}.onrender.com"
+                requests.get(url, timeout=10)
+            time.sleep(300)  # 5 daqiqada bir
+        except:
+            time.sleep(60)
