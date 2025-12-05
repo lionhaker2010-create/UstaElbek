@@ -1878,32 +1878,68 @@ async def handle_delete_back(callback: CallbackQuery):
     await callback.message.answer("👨‍💻 Admin Panel", reply_markup=get_admin_keyboard())
     await callback.answer()        
 
-# main.py faylining oxirgi qismini shunday qiling:
-
-# main.py faylining oxirgi qismi:
+# main.py faylining oxirgi qismini o'zgartiramiz:
 
 async def main():
-    """Asosiy bot funksiyasi - Singleton pattern"""
+    """Asosiy bot funksiyasi - Webhook bilan"""
     
     # Keep alive serverini ishga tushirish
     try:
         keep_alive.start_keep_alive()
-        logger.info("✅ Keep-alive server started on port 10000")
+        logger.info("✅ Keep-alive server started")
     except Exception as e:
         logger.warning(f"⚠️ Keep-alive error: {e}")
     
-    logger.info("🤖 Bot starting polling...")
+    logger.info("🤖 Bot starting...")
     
-    try:
-        # Avval pollingni to'xtatish (agar oldin ishlagan bo'lsa)
-        await dp.stop_polling()
-    except:
-        pass
-    
-    # Yangi pollingni boshlash
-    await dp.start_polling(bot, skip_updates=True)
-    
-    logger.info("✅ Bot polling started successfully")
+    # Agar Render'da bo'lsa, Webhook ishlatamiz
+    if os.getenv('RENDER'):
+        from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+        from aiohttp import web
+        
+        # Webhook URL yaratish
+        webhook_url = f"https://ustaelbek.onrender.com/webhook"
+        
+        # Webhook sozlamalari
+        await bot.set_webhook(
+            url=webhook_url,
+            drop_pending_updates=True
+        )
+        
+        # Aiohttp app yaratish
+        app = web.Application()
+        
+        # Webhook handler
+        webhook_requests_handler = SimpleRequestHandler(
+            dispatcher=dp,
+            bot=bot,
+        )
+        
+        webhook_requests_handler.register(app, path="/webhook")
+        
+        # Keep-alive uchun endpoint
+        async def handle_root(request):
+            return web.Response(text="🤖 Usta Elbek Bot is alive!")
+        
+        app.router.add_get("/", handle_root)
+        app.router.add_get("/health", lambda r: web.Response(text="OK"))
+        app.router.add_get("/ping", lambda r: web.Response(text="pong"))
+        
+        # Serverni ishga tushirish
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "0.0.0.0", 10000)
+        await site.start()
+        
+        logger.info(f"✅ Webhook started at {webhook_url}")
+        
+        # Cheksiz kutish
+        await asyncio.Event().wait()
+        
+    else:
+        # Lokal uchun polling
+        logger.info("📍 Local mode: Using polling")
+        await dp.start_polling(bot, skip_updates=True)
 
 if __name__ == "__main__":
     import sys
@@ -1912,7 +1948,6 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("🛑 Bot stopped by user")
-        sys.exit(0)
     except Exception as e:
         logger.error(f"❌ Fatal error: {e}")
         sys.exit(1)

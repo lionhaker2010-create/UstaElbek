@@ -1,7 +1,6 @@
-# keep_alive.py - FINAL WORKING VERSION
+# keep_alive.py - Faqat asosiy sahifa uchun
 
 from flask import Flask
-from threading import Thread
 
 app = Flask(__name__)
 
@@ -9,18 +8,6 @@ app = Flask(__name__)
 def home():
     return "🤖 Usta Elbek Bot is alive!"
 
-@app.route('/health')
-def health():
-    return "OK", 200
-
-@app.route('/ping')
-def ping():
-    return "pong", 200
-
-def run():
-    app.run(host='0.0.0.0', port=10000, debug=False, threaded=True)
-
 def start_keep_alive():
-    t = Thread(target=run, daemon=True)
-    t.start()
-    return t
+    # Flask ni ishga tushirmaymiz, chunki webhook allaqachon ishlaydi
+    print("✅ Keep-alive endpoints registered")
