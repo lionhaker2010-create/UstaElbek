@@ -226,6 +226,57 @@ class Database:
         cursor = self.conn.cursor()
         cursor.execute('SELECT * FROM users WHERE is_blocked = 1')
         return cursor.fetchall()    
+        
+    # database.py fayliga yangi funksiyalar qo'shing:
+
+    def get_recent_users(self, days: int = 7) -> List[Tuple]:
+        """So'nggi kunlarda ro'yxatdan o'tgan foydalanuvchilar"""
+        cursor = self.conn.cursor()
+        cursor.execute('''
+            SELECT * FROM users 
+            WHERE datetime(registered_at) > datetime('now', ?) 
+            AND is_blocked = 0
+            ORDER BY registered_at DESC
+        ''', (f'-{days} days',))
+        return cursor.fetchall()
+
+    def get_users_by_language(self, language: str) -> List[Tuple]:
+        """Til bo'yicha foydalanuvchilar"""
+        cursor = self.conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE language = ? AND is_blocked = 0', (language,))
+        return cursor.fetchall()
+
+    def get_user_stats(self) -> dict:
+        """Foydalanuvchi statistikasi"""
+        cursor = self.conn.cursor()
+        
+        # Jami foydalanuvchilar
+        cursor.execute('SELECT COUNT(*) FROM users')
+        total = cursor.fetchone()[0]
+        
+        # Faol foydalanuvchilar
+        cursor.execute('SELECT COUNT(*) FROM users WHERE is_blocked = 0')
+        active = cursor.fetchone()[0]
+        
+        # Bloklanganlar
+        cursor.execute('SELECT COUNT(*) FROM users WHERE is_blocked = 1')
+        blocked = cursor.fetchone()[0]
+        
+        # So'nggi 24 soat
+        cursor.execute('SELECT COUNT(*) FROM users WHERE datetime(registered_at) > datetime("now", "-1 day")')
+        last_24h = cursor.fetchone()[0]
+        
+        # Til bo'yicha
+        cursor.execute('SELECT language, COUNT(*) FROM users GROUP BY language')
+        by_language = cursor.fetchall()
+        
+        return {
+            'total': total,
+            'active': active,
+            'blocked': blocked,
+            'last_24h': last_24h,
+            'by_language': dict(by_language)
+        }    
 
 # Global database instance
 db = Database()

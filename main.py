@@ -29,17 +29,36 @@ import admin
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+from aiogram import Bot
+
 # .env faylini yuklash
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
-# Bot va dispatcher yaratish
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 # ✅ TO'G'RI: admin modulini sozlash (bot yaratilgandan keyin)
 admin.set_bot_and_admin(bot, ADMIN_ID)
+
+async def get_bot_username():
+    """Bot username'ini olish"""
+    try:
+        bot_info = await bot.get_me()
+        return bot_info.username
+    except Exception as e:
+        logger.error(f"Failed to get bot username: {e}")
+        return "UstaElbek_bot"  # Default username
+
+# ✅ YANGI: Bot username'ini global qilish
+BOT_USERNAME = None
+
+async def initialize_bot():
+    """Botni ishga tushirish va username'ni olish"""
+    global BOT_USERNAME
+    BOT_USERNAME = await get_bot_username()
+    logger.info(f"Bot username: {BOT_USERNAME}")
 
 # Emojilar
 EMOJIS = {
@@ -475,6 +494,20 @@ async def handle_back_to_main(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Back to main error: {e}")
         await callback.answer("Xatolik yuz berdi!")
+        
+@dp.callback_query(F.data.startswith("copy_link:"))
+async def handle_copy_link(callback: CallbackQuery):
+    """Havolani nusxalash"""
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("❌ Faqat admin!")
+        return
+    
+    try:
+        link = callback.data.split(":")[1]
+        # Havolani clipboard ga nusxalash (foydalanuvchi uchun)
+        await callback.answer(f"✅ Havola nusxalandi!\n{link[:50]}...", show_alert=True)
+    except Exception as e:
+        await callback.answer("❌ Xatolik!", show_alert=True)        
 
 # main.py faylida cmd_start funksiyasini shunday qiling:
 
@@ -930,8 +963,11 @@ async def handle_contact(message: Message):
 
 # main.py faylida:
 
+# ============ ADMIN BROADCAST CALLBACK HANDLERS ============
+
 @dp.callback_query(F.data.startswith("confirm_broadcast:"))
 async def handle_confirm_broadcast(callback: CallbackQuery, state: FSMContext):
+    """Reklamani tasdiqlash va yuborish"""
     if callback.from_user.id != ADMIN_ID:
         await callback.answer("❌ Faqat admin!")
         return
@@ -940,67 +976,121 @@ async def handle_confirm_broadcast(callback: CallbackQuery, state: FSMContext):
         broadcast_type = callback.data.split(":")[1]
         data = await state.get_data()
         
-        users = db.get_active_users()
+        # Qabul qiluvchilarni aniqlash
+        recipients_type = data.get('broadcast_recipients', '👥 Barcha foydalanuvchilar')
+        
+        if recipients_type == "👥 Barcha foydalanuvchilar":
+            users = db.get_all_users()
+        elif recipients_type == "✅ Faol foydalanuvchilar":
+            users = db.get_active_users()
+        elif recipients_type == "🆕 Yangi foydalanuvchilar":
+            all_users = db.get_all_users()
+            users = all_users[-50:] if len(all_users) > 50 else all_users
+        else:
+            users = db.get_active_users()
+        
+        total_users = len(users)
         success = 0
         failed = 0
         
+        # Progress xabari
         progress_msg = await callback.message.answer(
-            f"📤 Reklama {len(users)} ta foydalanuvchiga yuborilmoqda...\n\n"
-            f"✅ Muvaffaqiyatli: {success}\n"
-            f"❌ Muvaffaqiyatsiz: {failed}"
+            f"📤 <b>Reklama yuborilmoqda...</b>\n\n"
+            f"👥 Nisbat: {recipients_type}\n"
+            f"📊 Jami: {total_users} ta\n"
+            f"✅ Yuborildi: {success}\n"
+            f"❌ Xato: {failed}\n\n"
+            f"⏳ Iltimos, kuting...",
+            parse_mode="HTML"
         )
         
-        for user in users:
+        # Har bir foydalanuvchiga yuborish
+        for index, user in enumerate(users, 1):
+            user_id = user[0]
+            
             try:
                 if broadcast_type == "text":
                     await bot.send_message(
-                        user[0], 
+                        user_id, 
                         data['broadcast_text'], 
                         parse_mode="HTML"
                     )
+                
                 elif broadcast_type == "photo":
                     await bot.send_photo(
-                        user[0],
+                        user_id,
                         photo=data['broadcast_file_id'],
                         caption=data.get('broadcast_caption', ''),
                         parse_mode="HTML"
                     )
-                # Video va dokument uchun ham xuddi shu
+                
+                elif broadcast_type == "video":
+                    await bot.send_video(
+                        user_id,
+                        video=data['broadcast_file_id'],
+                        caption=data.get('broadcast_caption', ''),
+                        parse_mode="HTML",
+                        supports_streaming=True
+                    )
+                
+                elif broadcast_type == "document":
+                    await bot.send_document(
+                        user_id,
+                        document=data['broadcast_file_id'],
+                        caption=data.get('broadcast_caption', ''),
+                        parse_mode="HTML"
+                    )
                 
                 success += 1
                 
-                if success % 10 == 0:
+                # Har 10 ta yuborilganda progress yangilash
+                if success % 10 == 0 or index == total_users:
                     await progress_msg.edit_text(
-                        f"📤 Reklama {len(users)} ta foydalanuvchiga yuborilmoqda...\n\n"
-                        f"✅ Muvaffaqiyatli: {success}\n"
-                        f"❌ Muvaffaqiyatsiz: {failed}"
+                        f"📤 <b>Reklama yuborilmoqda...</b>\n\n"
+                        f"👥 Nisbat: {recipients_type}\n"
+                        f"📊 Jami: {total_users} ta\n"
+                        f"✅ Yuborildi: {success}\n"
+                        f"❌ Xato: {failed}\n\n"
+                        f"⏳ {index}/{total_users} ({int((index/total_users)*100)}%)",
+                        parse_mode="HTML"
                     )
                 
-                await asyncio.sleep(0.1)
+                # Telegram limitlarini buzmaslik uchun kutish
+                await asyncio.sleep(0.05)
+                
             except Exception as e:
                 failed += 1
+                logger.error(f"Failed to send to user {user_id}: {e}")
         
+        # Yakuniy natija
         result_message = (
-            f"✅ Reklama yuborish yakunlandi!\n\n"
-            f"📊 Natijalar:\n"
+            f"✅ <b>REKLAMA YUBORISH YAKUNLANDI!</b>\n\n"
+            f"📊 <b>NATIJALAR:</b>\n"
+            f"👥 Nisbat: {recipients_type}\n"
+            f"📊 Jami foydalanuvchilar: {total_users}\n"
             f"✅ Muvaffaqiyatli: {success}\n"
             f"❌ Muvaffaqiyatsiz: {failed}\n"
-            f"👥 Jami: {len(users)}"
+            f"📈 Muvaffaqiyat darajasi: {int((success/total_users)*100) if total_users > 0 else 0}%\n\n"
+            f"⏰ Vaqt: {datetime.now().strftime('%H:%M:%S')}"
         )
         
-        await progress_msg.edit_text(result_message)
-        await callback.answer("✅ Reklama yuborildi!", show_alert=True)
+        await progress_msg.edit_text(result_message, parse_mode="HTML")
+        await callback.answer(f"✅ {success} ta foydalanuvchiga yuborildi!", show_alert=True)
         
+        # Holatni tozalash
         await state.clear()
+        
+        # Admin panelga qaytish
         from admin import get_admin_keyboard
         await callback.message.answer("👨‍💻 Admin Panel", reply_markup=get_admin_keyboard())
         
     except Exception as e:
         logger.error(f"Broadcast error: {e}")
-        await callback.answer("❌ Xatolik!", show_alert=True)
+        await callback.answer(f"❌ Xatolik: {str(e)[:100]}", show_alert=True)
 
 @dp.callback_query(F.data == "cancel_broadcast")
 async def handle_cancel_broadcast(callback: CallbackQuery, state: FSMContext):
+    """Reklamani bekor qilish"""
     await callback.answer("❌ Reklama bekor qilindi!")
     await state.clear()
     from admin import get_admin_keyboard
@@ -1874,7 +1964,10 @@ async def main():
     # Keep alive serverini ishga tushirish
     keep_alive.start_keep_alive()
     
-    logger.info("Bot ishga tushdi...")
+    # Bot username'ini olish
+    await initialize_bot()
+    
+    logger.info(f"Bot ishga tushdi... Username: {BOT_USERNAME}")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
